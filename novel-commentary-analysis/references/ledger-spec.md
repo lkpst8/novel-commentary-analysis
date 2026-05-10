@@ -13,6 +13,7 @@ After packet notes and phase notes are filled:
 - only reopen raw packet text when a specific ambiguity still matters
 
 Do not rebuild understanding from scratch if the ledgers already capture it.
+Token efficiency does not mean sparse sampling. It means paying the source-reading cost once, then reusing full-coverage intermediate artifacts.
 
 ## Packet Note Sections
 
@@ -76,6 +77,8 @@ Prioritize:
 - ending ledger
 - phase summaries
 
+This mode must not be created from a small sample of packets.
+
 ### `short-outline`
 
 Prioritize:
@@ -84,3 +87,4 @@ Prioritize:
 - short-outline canon
 
 Do not go back to raw packets unless a crucial plot dependency is still unclear.
+This mode must never be derived from only a few packets such as the beginning, midpoint, and ending.

@@ -15,6 +15,71 @@ def read_if_exists(path: Path) -> str:
     return read_text(path).strip()
 
 
+PLACEHOLDER_MARKERS = (
+    "- Not filled yet.",
+    "- No main-plot updates recorded yet.",
+    "- No character updates recorded yet.",
+    "- No relationship updates recorded yet.",
+    "- No subplot updates recorded yet.",
+    "- No world or background updates recorded yet.",
+    "- No ending-impact notes recorded yet.",
+)
+
+
+def assert_workspace_coverage(workspace_dir: Path, manifest: dict, mode: str) -> None:
+    packet_notes_dir = workspace_dir / "notes" / "packets"
+    phase_notes_dir = workspace_dir / "notes" / "phases"
+    ledgers_dir = workspace_dir / "ledgers"
+
+    errors: list[str] = []
+
+    for packet in manifest.get("packets", []):
+        packet_number = int(packet["packet_number"])
+        note_path = packet_notes_dir / f"packet-{packet_number:03d}-notes.md"
+        if not note_path.exists():
+            errors.append(f"Missing packet note: {note_path.name}")
+            continue
+        note_text = read_if_exists(note_path)
+        if "\n- \n" in note_text or note_text.rstrip().endswith("-"):
+            errors.append(f"Unfilled packet note: {note_path.name}")
+
+    for phase in manifest.get("phases", []):
+        phase_number = int(phase["phase_number"])
+        note_path = phase_notes_dir / f"phase-{phase_number:02d}-notes.md"
+        if not note_path.exists():
+            errors.append(f"Missing phase note: {note_path.name}")
+            continue
+        note_text = read_if_exists(note_path)
+        if "\n- \n" in note_text or note_text.rstrip().endswith("-"):
+            errors.append(f"Unfilled phase note: {note_path.name}")
+
+    required_ledgers = [
+        "main-plot-ledger.md",
+        "character-ledger.md",
+        "relationship-ledger.md",
+        "subplot-ledger.md",
+        "world-ledger.md",
+        "ending-ledger.md",
+    ]
+    for ledger_name in required_ledgers:
+        ledger_path = ledgers_dir / ledger_name
+        if not ledger_path.exists():
+            errors.append(f"Missing ledger: {ledger_name}")
+            continue
+        ledger_text = read_if_exists(ledger_path)
+        if any(marker in ledger_text for marker in PLACEHOLDER_MARKERS):
+            errors.append(f"Ledger still looks unfilled: {ledger_name}")
+
+    if errors:
+        joined = "\n".join(f"- {item}" for item in errors)
+        raise RuntimeError(
+            f"Cannot build `{mode}` compression output because workspace coverage is incomplete.\n"
+            f"{joined}\n"
+            "Finish packet notes, phase notes, and ledgers first. "
+            "Do not replace missing coverage by sampling a few packets."
+        )
+
+
 def build_phase_index(workspace_dir: Path, manifest: dict) -> str:
     phase_summaries_dir = workspace_dir / "phase-summaries"
     lines: list[str] = []
@@ -85,6 +150,7 @@ def build_medium_pass(workspace_dir: Path) -> str:
             "- Goal: compress the novel into a readable mid-length outline while preserving the full main-line causality.",
             "- Merge repetitive beats before dropping anything important.",
             "- Keep every ending-relevant character, subplot, and reversal.",
+            "- This pass must not be built from sparse packet sampling. It requires full workspace coverage.",
             "",
             "## Compression Rules",
             "",
@@ -92,6 +158,7 @@ def build_medium_pass(workspace_dir: Path) -> str:
             "- Keep subplots only when they affect the main line, a major character arc, or the ending.",
             "- Shorten wording before deleting events.",
             "- If a later-phase revelation changes the meaning of earlier phases, reflect that here.",
+            "- Do not build this pass by reading only the beginning, middle, and ending packets.",
             "",
             "## Source Material",
             "",
@@ -109,6 +176,7 @@ def build_short_pass(workspace_dir: Path) -> str:
             "",
             "- Goal: rebuild the long novel as a short-form complete story skeleton.",
             "- This is not a list of fragments. It should read like a compact but complete narrative arc.",
+            "- This pass must inherit from full coverage, not sparse sampling.",
             "",
             "## Required Skeleton",
             "",
@@ -126,6 +194,7 @@ def build_short_pass(workspace_dir: Path) -> str:
             "- Do not keep minor atmosphere scenes unless they materially shape the story arc.",
             "- Do not let the back half collapse into two vague sentences.",
             "- Every preserved subplot must visibly affect the short outline.",
+            "- Never derive this pass from only a few sampled packets.",
             "",
             "## Source Material",
             "",
@@ -173,12 +242,16 @@ def main() -> None:
     manifest = load_manifest(workspace_dir)
 
     if args.mode in ("all", "full"):
+        assert_workspace_coverage(workspace_dir, manifest, "full")
         write_text(workspace_dir / "compression-pass-1-full.md", build_full_pass(workspace_dir, manifest))
     if args.mode in ("all", "medium"):
+        assert_workspace_coverage(workspace_dir, manifest, "medium")
         write_text(workspace_dir / "compression-pass-2-medium.md", build_medium_pass(workspace_dir))
     if args.mode in ("all", "short"):
+        assert_workspace_coverage(workspace_dir, manifest, "short")
         write_text(workspace_dir / "compression-pass-3-short.md", build_short_pass(workspace_dir))
     if args.mode in ("all", "canon"):
+        assert_workspace_coverage(workspace_dir, manifest, "canon")
         write_text(workspace_dir / "short-outline-canon.md", build_canon(workspace_dir))
 
     print(f"Compression artifacts updated in {workspace_dir}")

@@ -16,6 +16,8 @@ description: Analyze long novels with a token-efficient staged workflow and gene
 - `short-outline`：短篇化完整剧情大纲
 
 核心设计目标是节省 token。先把原文读入 workspace，然后优先消费 packet notes、phase summaries、各类 ledgers 和 compression artifacts，而不是每一步都回头重读整本小说。
+注意：节省 token 不等于抽样读几个 packet。对长篇和超长篇来说，`medium-outline` 和 `short-outline` 必须建立在全量覆盖的 notes / ledgers / phase summaries 之上。
+对于过长的梗概输出，也不要尝试一次性直接回答完；默认先分段写成多个本地 Markdown 文件，最后再合并。
 
 ## 模式选择
 
@@ -77,6 +79,7 @@ description: Analyze long novels with a token-efficient staged workflow and gene
 ## 节省 Token 规则
 
 这个 skill 的工作原则是：把原文当成“昂贵输入”，把 workspace 当成“可复用记忆层”。
+这里的“可复用”前提是先把 coverage 做完整，而不是只抽样开头、中段、结尾几个 packet。
 
 推荐顺序：
 
@@ -91,6 +94,12 @@ workspace 建好之后：
 - 优先使用 `manifest.json`、`chapters.md`、packet notes、phase notes、ledgers、compression passes
 - 只有在确实存在关键歧义时，才回头打开 raw packet
 - 如果 workspace 里的中间产物已经覆盖需要的信息，不要重新从整本书开始总结
+
+禁止把“节省 token”理解成：
+
+- 只读第 1、60、120 个 packet 就写全书梗概
+- 只抽开头、中段、结尾几个片段就生成 `medium-outline`
+- 没完成 packet notes / phase notes / ledgers 就直接压缩成短纲
 
 ## 本地优先规则
 
@@ -223,6 +232,12 @@ workspace 建好之后：
 - 不改变故事方向的小事件
 
 这个模式应优先建立在 ledgers 和 full compression pass 之上，而不是重读整本原文。
+对于长篇和超长篇，`medium-outline` 必须基于完整 packet coverage，而不能基于少量抽样 packet。
+如果中篇梗概过长，默认流程是：
+
+1. 先生成分段计划
+2. 分段写入本地 Markdown 文件
+3. 再合并为 `medium-outline.md`
 
 ## `short-outline` 规则
 
@@ -246,6 +261,12 @@ workspace 建好之后：
 4. `short-outline-canon.md`
 
 如果最终短纲超出单次输出长度，就按 canon 分段输出，不要靠上下文记忆续写。
+对于长篇和超长篇，`short-outline` 必须建立在完整覆盖后的 compression chain 上，不能靠少量 packet 抽样拼接。
+默认做法不是直接把最终短纲一次性输出给用户，而是：
+
+1. 先按 canon 规划多段
+2. 每段单独写入本地 Markdown 文件
+3. 最后合并成总稿
 
 参见 [references/short-outline-spec.md](references/short-outline-spec.md)
 
@@ -270,6 +291,8 @@ workspace 建好之后：
 - `scripts/novel_chapter_detector.py`
 - `scripts/novel_ledger_builder.py`
 - `scripts/novel_outline_compressor.py`
+- `scripts/novel_outline_segmenter.py`
+- `scripts/novel_outline_merger.py`
 - `scripts/novel_html_builder.py`
 - `scripts/novel_consistency_checker.py`
 

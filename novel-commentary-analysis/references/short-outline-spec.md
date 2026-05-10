@@ -29,6 +29,7 @@ Always use the staged chain:
 7. `short-outline-canon.md`
 
 Do not jump from raw text straight to the short outline unless the source is genuinely small.
+Do not jump from a few sampled packets to the short outline under any circumstances.
 
 ## Keep / Compress Rules
 
@@ -58,11 +59,15 @@ Compress:
 - Do not let the later half shrink into a vague ending paragraph.
 - Do not remove the event that explains why the ending becomes possible.
 - Do not keep a subplot in the outline unless its effect on the whole story is visible.
+- Do not build the outline by reading only representative samples such as “opening, middle, and ending”.
+- For long novels, every packet must be covered through notes and ledgers before the short outline is considered valid.
 
 ## Multi-Part Output Rule
 
 If the final short outline is too large for one model output:
 
 - use `short-outline-canon.md` as the fixed source
-- split the final output into ordered parts
+- split the final output into ordered Markdown part files first
+- store them as local `.md` files such as `short-part-01.md`, `short-part-02.md`, ...
+- merge them afterward with a local script
 - do not continue from memory alone

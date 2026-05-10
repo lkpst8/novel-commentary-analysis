@@ -71,12 +71,25 @@ def main() -> None:
         if "\n- \n" in note_text or note_text.rstrip().endswith("-"):
             warnings.append(f"{note_path.name} still contains unfilled bullet placeholders.")
 
+    filled_packet_count = 0
+    for packet in manifest.get("packets", []):
+        packet_number = int(packet["packet_number"])
+        note_path = packet_notes_dir / f"packet-{packet_number:03d}-notes.md"
+        if note_path.exists():
+            note_text = read_text(note_path)
+            if "\n- \n" not in note_text and not note_text.rstrip().endswith("-"):
+                filled_packet_count += 1
+
     for phase in manifest.get("phases", []):
         phase_number = int(phase["phase_number"])
         note_path = phase_notes_dir / f"phase-{phase_number:02d}-notes.md"
         summary_path = phase_summaries_dir / f"phase-{phase_number:02d}-summary.md"
         if not note_path.exists():
             warnings.append(f"Missing phase note file: {note_path.name}")
+        else:
+            note_text = read_text(note_path)
+            if "\n- \n" in note_text or note_text.rstrip().endswith("-"):
+                warnings.append(f"{note_path.name} still contains unfilled bullet placeholders.")
         if not summary_path.exists():
             warnings.append(f"Missing phase summary file: {summary_path.name}")
 
@@ -116,12 +129,19 @@ def main() -> None:
     else:
         warnings.append("coverage-ledger.md is missing.")
 
+    if filled_packet_count < int(manifest["packet_count"]):
+        warnings.append(
+            f"Only {filled_packet_count}/{manifest['packet_count']} packet notes are filled. "
+            "Do not build medium or short outlines from sparse packet sampling."
+        )
+
     report_lines = [
         "# Consistency Check Report",
         "",
         f"- Workspace: `{workspace_dir}`",
         f"- Packets: {manifest['packet_count']}",
         f"- Phases: {manifest['phase_count']}",
+        f"- Filled packet notes: {filled_packet_count}/{manifest['packet_count']}",
         "",
     ]
     if warnings:
