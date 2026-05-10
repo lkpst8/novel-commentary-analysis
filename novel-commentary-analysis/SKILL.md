@@ -48,7 +48,7 @@ Identify the scope before writing:
 - Delivery goal: reading guide,解说稿底稿, video/article page, archive page, or study notes.
 - Certainty level: complete source, partial source, or damaged source.
 
-If the novel is too long for a reliable single-pass read, run `scripts/novel_packetizer.py` first and synthesize from packets.
+If the novel is too long for a reliable single-pass read, run `scripts/novel_packetizer.py` first and synthesize from the generated workspace rather than from a single raw file.
 
 ## Reading Model
 
@@ -75,6 +75,28 @@ Build the analysis around these core layers:
 - `主题与气质`
   Extract what the novel repeatedly expresses through scenes, choices, institutions, and emotional patterns.
 
+## Very Long Novel Mode
+
+Use this mode for novels that are multiple megabytes long or large enough that a single-pass summary would almost certainly miss characters, subplots, or major turns.
+
+Process the source hierarchically:
+
+1. Split the source into `packets/`.
+2. Group packets into `phases/`.
+3. Track every packet in `coverage-ledger.md`.
+4. Build rolling notes for characters, worldbuilding, factions, relationships, main-line stages, and subplot states.
+5. Only after phase-level synthesis, draft the final HTML.
+
+Never jump directly from a tens-of-megabytes source file to a one-shot summary. That is how main plot beats, secondary arcs, and late-introduced characters get lost.
+
+For very long novels, every packet should be represented in at least one of these final destinations:
+
+- main plot timeline
+- subplot section
+- character update
+- world/background note
+- certainty/source note
+
 ## Required HTML Sections
 
 Unless the user narrows the task, include all of these sections in the HTML output:
@@ -92,6 +114,13 @@ Unless the user narrows the task, include all of these sections in the HTML outp
 11. Why the novel is memorable
 12. Certainty and source notes
 
+For very long novels, also add:
+
+13. Quick navigation table of contents
+14. Phase-by-phase or act-by-act breakdown
+15. Extended supporting cast or faction appendix when needed
+16. Subplot index showing where each subplot begins, escalates, and resolves
+
 You may add sections like `叙事视角`, `阵营结构`, `时间线`, `名场面`, or `改编提示` when the source supports them.
 
 Read [references/html-output-spec.md](references/html-output-spec.md) for the detailed structure and section-level requirements before drafting.
@@ -108,6 +137,13 @@ Apply these rules while filling the HTML page:
 - `结局` should state what actually happens and what emotional/structural consequences remain.
 - `主题` should come from repeated evidence, not a slogan pasted on top of the story.
 
+For very long novels, keep two levels of explanation:
+
+- `速览层`: a compressed explanation for readers who want the whole story fast
+- `展开层`: detailed sections that preserve the important progression of plot, people, and subplots
+
+If the page becomes long, compress phrasing before deleting events. Prefer using anchor navigation, `details/summary`, appendices, and phase sections rather than dropping material.
+
 ## Output Method
 
 When producing the final HTML:
@@ -120,6 +156,15 @@ When producing the final HTML:
 6. Run a final fidelity pass and remove anything not grounded in the source.
 
 Prefer semantic HTML with clear headings, summary cards, and compact section intros. Keep the layout easy to scan on desktop and mobile. Inline CSS is acceptable if the user asks for a standalone file.
+
+For very long novels, the HTML should be multi-layered:
+
+- top-level quick answer section
+- navigable table of contents
+- concise character and world summary near the top
+- main plot broken into phases or acts
+- subplot cards or grouped sections
+- optional appendices for extended cast, faction notes, or detailed chronology
 
 ## Fidelity Check Before Finalizing
 
@@ -140,10 +185,20 @@ Use [references/commentary-framework.md](references/commentary-framework.md) for
 
 Use [references/html-output-spec.md](references/html-output-spec.md) for the exact HTML page structure and content contract.
 
+Use [references/large-novel-scaling.md](references/large-novel-scaling.md) when the source is large enough that omission risk becomes the main problem.
+
 If needed, packetize long source text:
 
 ```bash
-python scripts/novel_packetizer.py input.txt output_dir --title "Book Title"
+python scripts/novel_packetizer.py input.txt output_dir --title "Book Title" --max-chars 10000 --packets-per-phase 6
 ```
 
-Then analyze packet by packet, merge notes, and only after that write the final HTML page.
+The script generates:
+
+- `packets/` for low-level reading
+- `phases/` for mid-level synthesis
+- `coverage-ledger.md` to prevent silent omissions
+- `html-outline-template.md` to structure long HTML output
+- `manifest.json` for machine-readable workspace metadata
+
+Then analyze packet by packet, merge notes phase by phase, and only after that write the final HTML page.

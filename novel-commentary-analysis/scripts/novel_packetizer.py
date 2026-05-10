@@ -1,15 +1,20 @@
 #!/usr/bin/env python3
-"""Split long novel text into analysis-friendly markdown packets."""
+"""Split long novel text into a hierarchical analysis workspace."""
 
 from __future__ import annotations
 
 import argparse
 import html
+import json
 import re
 from pathlib import Path
 
 
 ENCODINGS = ("utf-8", "utf-8-sig", "gb18030", "gbk")
+CHAPTER_PATTERNS = (
+    re.compile(r"^第[0-9零一二三四五六七八九十百千两]+[章节回卷部集篇幕].*$"),
+    re.compile(r"^(chapter|prologue|epilogue)\b", re.IGNORECASE),
+)
 
 
 def read_text(path: Path) -> str:
@@ -23,21 +28,20 @@ def read_text(path: Path) -> str:
 
 
 def strip_html(raw: str) -> str:
-    raw = re.sub(r"(?is)<script\\b.*?</script>", " ", raw)
-    raw = re.sub(r"(?is)<style\\b.*?</style>", " ", raw)
-    raw = re.sub(r"(?i)<br\\s*/?>", "\n", raw)
-    raw = re.sub(r"(?i)</p\\s*>", "\n\n", raw)
+    raw = re.sub(r"(?is)<script\b.*?</script>", " ", raw)
+    raw = re.sub(r"(?is)<style\b.*?</style>", " ", raw)
+    raw = re.sub(r"(?i)<br\s*/?>", "\n", raw)
+    raw = re.sub(r"(?i)</p\s*>", "\n\n", raw)
     raw = re.sub(r"(?is)<[^>]+>", " ", raw)
-    raw = html.unescape(raw)
-    return raw
+    return html.unescape(raw)
 
 
 def normalize_text(raw: str) -> str:
     raw = raw.replace("\r\n", "\n").replace("\r", "\n")
     raw = raw.replace("\u3000", " ")
     lines = [line.strip() for line in raw.split("\n")]
-    paragraphs = []
-    current = []
+    paragraphs: list[str] = []
+    current: list[str] = []
     for line in lines:
         if not line:
             if current:
@@ -54,6 +58,45 @@ def split_paragraphs(text: str) -> list[str]:
     return [p.strip() for p in text.split("\n\n") if p.strip()]
 
 
+def is_chapter_heading(paragraph: str) -> bool:
+    sample = paragraph.strip()
+    if len(sample) > 60:
+        return False
+    return any(pattern.match(sample) for pattern in CHAPTER_PATTERNS)
+
+
+def split_oversized_paragraph(paragraph: str, max_chars: int) -> list[str]:
+    if len(paragraph) <= max_chars:
+        return [paragraph]
+
+    sentences = [
+        chunk.strip()
+        for chunk in re.split(r"(?<=[。！？!?；;])\s*", paragraph)
+        if chunk.strip()
+    ]
+    if len(sentences) <= 1:
+        return [paragraph[i : i + max_chars] for i in range(0, len(paragraph), max_chars)]
+
+    pieces: list[str] = []
+    current = ""
+    for sentence in sentences:
+        if current and len(current) + 1 + len(sentence) > max_chars:
+            pieces.append(current)
+            current = sentence
+        else:
+            current = f"{current} {sentence}".strip()
+    if current:
+        pieces.append(current)
+    return pieces
+
+
+def expand_paragraphs(paragraphs: list[str], max_chars: int) -> list[str]:
+    expanded: list[str] = []
+    for paragraph in paragraphs:
+        expanded.extend(split_oversized_paragraph(paragraph, max_chars))
+    return expanded
+
+
 def packetize(paragraphs: list[str], max_chars: int) -> list[list[str]]:
     packets: list[list[str]] = []
     current: list[str] = []
@@ -61,6 +104,12 @@ def packetize(paragraphs: list[str], max_chars: int) -> list[list[str]]:
 
     for paragraph in paragraphs:
         paragraph_size = len(paragraph)
+
+        if current and is_chapter_heading(paragraph) and current_size >= max_chars // 2:
+            packets.append(current)
+            current = []
+            current_size = 0
+
         if current and current_size + 2 + paragraph_size > max_chars:
             packets.append(current)
             current = []
@@ -76,7 +125,7 @@ def packetize(paragraphs: list[str], max_chars: int) -> list[list[str]]:
 
 
 def write_packet(
-    output_dir: Path,
+    packets_dir: Path,
     packet_number: int,
     title: str,
     source_name: str,
@@ -86,7 +135,7 @@ def write_packet(
 ) -> dict[str, int | str]:
     body = "\n\n".join(packet)
     packet_name = f"packet-{packet_number:03d}.md"
-    packet_path = output_dir / packet_name
+    packet_path = packets_dir / packet_name
     end_paragraph = start_paragraph + len(packet) - 1
     packet_path.write_text(
         "\n".join(
@@ -97,11 +146,13 @@ def write_packet(
                 f"- Paragraphs: {start_paragraph}-{end_paragraph} / {total_paragraphs}",
                 f"- Characters: {len(body)}",
                 "",
-                "## Reading Focus",
+                "## Extraction Tasks",
                 "",
-                "- Record key events and immediate causes.",
-                "- Note any new character, relationship shift, or tonal change.",
-                "- Mark unresolved threads to revisit after later packets.",
+                "- Record key events in chronological order.",
+                "- Note any new named character or new role for an existing character.",
+                "- Mark changes to background, institutions, factions, or world rules.",
+                "- Flag subplot openings, escalations, merges, and closures.",
+                "- Record unresolved threads that must be tracked later.",
                 "",
                 "## Text",
                 "",
@@ -112,11 +163,126 @@ def write_packet(
         encoding="utf-8",
     )
     return {
+        "packet_number": packet_number,
         "name": packet_name,
+        "relative_path": f"packets/{packet_name}",
         "start_paragraph": start_paragraph,
         "end_paragraph": end_paragraph,
         "characters": len(body),
     }
+
+
+def group_packets(
+    packet_info: list[dict[str, int | str]], packets_per_phase: int
+) -> list[dict[str, int | str]]:
+    phases: list[dict[str, int | str]] = []
+    for index in range(0, len(packet_info), packets_per_phase):
+        group = packet_info[index : index + packets_per_phase]
+        phase_number = len(phases) + 1
+        phases.append(
+            {
+                "phase_number": phase_number,
+                "packet_start": group[0]["packet_number"],
+                "packet_end": group[-1]["packet_number"],
+                "paragraph_start": group[0]["start_paragraph"],
+                "paragraph_end": group[-1]["end_paragraph"],
+                "characters": sum(int(item["characters"]) for item in group),
+                "packets": [str(item["relative_path"]) for item in group],
+            }
+        )
+    return phases
+
+
+def write_phase_files(phases_dir: Path, phases: list[dict[str, int | str]], title: str) -> None:
+    for phase in phases:
+        phase_name = f"phase-{int(phase['phase_number']):02d}.md"
+        phase_path = phases_dir / phase_name
+        packet_lines = [f"- `{packet}`" for packet in phase["packets"]]
+        phase_path.write_text(
+            "\n".join(
+                [
+                    f"# {title} Phase {int(phase['phase_number']):02d}",
+                    "",
+                    f"- Packets: {phase['packet_start']}-{phase['packet_end']}",
+                    f"- Paragraphs: {phase['paragraph_start']}-{phase['paragraph_end']}",
+                    f"- Approximate characters: {phase['characters']}",
+                    "",
+                    "## Included Packets",
+                    "",
+                    *packet_lines,
+                    "",
+                    "## Phase Summary Tasks",
+                    "",
+                    "- Summarize the main-line progress in this phase.",
+                    "- List subplot changes introduced or resolved here.",
+                    "- Record character-state changes for major figures.",
+                    "- Note any new worldbuilding, institutions, factions, or rules.",
+                    "- List unresolved threads that move into the next phase.",
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
+
+
+def write_coverage_ledger(output_dir: Path, packet_info: list[dict[str, int | str]]) -> None:
+    lines = [
+        "# Coverage Ledger",
+        "",
+        "Use this file while reading very long novels. Every packet should be accounted for before you finalize the HTML output.",
+        "",
+        "| Packet | Story Stage | Main Plot Events | Subplot Updates | Character Changes | World/Background Notes | Unresolved Threads | Covered In Final HTML |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- |",
+    ]
+    for info in packet_info:
+        lines.append(
+            f"| {int(info['packet_number']):03d} |  |  |  |  |  |  |  |"
+        )
+    lines.append("")
+    (output_dir / "coverage-ledger.md").write_text("\n".join(lines), encoding="utf-8")
+
+
+def write_html_outline_template(output_dir: Path, phases: list[dict[str, int | str]]) -> None:
+    phase_lines = [
+        f"- Phase {int(phase['phase_number']):02d}: packets {phase['packet_start']}-{phase['packet_end']}"
+        for phase in phases
+    ]
+    lines = [
+        "# HTML Outline Template",
+        "",
+        "Use this template to avoid losing important material when the novel is very long.",
+        "",
+        "## Page Architecture",
+        "",
+        "1. Header / hero summary",
+        "2. One-screen quick answer: 这本书讲了什么",
+        "3. Background and world rules",
+        "4. Main-character roster",
+        "5. Extended character/faction appendix when needed",
+        "6. Relationship map summary",
+        "7. Main plot overview in 6-12 stages",
+        "8. Detailed act/phase breakdown",
+        "9. Major subplots index",
+        "10. Key turning points",
+        "11. Ending and aftermath",
+        "12. Themes and emotional core",
+        "13. Memorable aspects",
+        "14. Source certainty notes",
+        "",
+        "## Phase Coverage Checklist",
+        "",
+        *phase_lines,
+        "",
+        "## Anti-Omission Rules",
+        "",
+        "- Every phase must appear in either the main plot section or a clearly named subplot section.",
+        "- Every major character should be introduced where they first become story-relevant.",
+        "- Every subplot should have an opening, development, and closure state when the source allows it.",
+        "- If the HTML becomes too long, compress wording before dropping events.",
+        "- Use collapsible sections or appendices for secondary detail instead of deleting it.",
+        "",
+    ]
+    (output_dir / "html-outline-template.md").write_text("\n".join(lines), encoding="utf-8")
 
 
 def write_index(
@@ -124,21 +290,35 @@ def write_index(
     title: str,
     source_name: str,
     total_paragraphs: int,
+    total_chars: int,
     packet_info: list[dict[str, int | str]],
+    phases: list[dict[str, int | str]],
 ) -> None:
     lines = [
-        f"# {title} Packet Index",
+        f"# {title} Analysis Workspace",
         "",
         f"- Source: `{source_name}`",
         f"- Total paragraphs: {total_paragraphs}",
+        f"- Total normalized characters: {total_chars}",
         f"- Total packets: {len(packet_info)}",
+        f"- Total phases: {len(phases)}",
         "",
-        "## Suggested Workflow",
+        "## Recommended Workflow For Very Long Novels",
         "",
-        "1. Read one packet at a time.",
-        "2. Extract events, motives, conflicts, and emotional shifts.",
-        "3. Maintain a running timeline and character map.",
-        "4. Synthesize across all packets only after the full pass.",
+        "1. Read packets in order and extract notes per packet.",
+        "2. Merge packet notes into phase summaries.",
+        "3. Maintain the coverage ledger so no packet is silently dropped.",
+        "4. Build global character, relationship, world, and subplot notes.",
+        "5. Draft the HTML from the outline template.",
+        "6. Run a final pass to confirm every phase is represented.",
+        "",
+        "## Workspace Files",
+        "",
+        "- `packets/`: packet-by-packet source slices",
+        "- `phases/`: grouped packet ranges for mid-level summaries",
+        "- `coverage-ledger.md`: anti-omission tracker",
+        "- `html-outline-template.md`: long-form HTML structure guide",
+        "- `manifest.json`: machine-readable workspace metadata",
         "",
         "## Packets",
         "",
@@ -146,17 +326,62 @@ def write_index(
 
     for info in packet_info:
         lines.append(
-            f"- `{info['name']}`: paragraphs {info['start_paragraph']}-{info['end_paragraph']}, {info['characters']} chars"
+            f"- `packets/packet-{int(info['packet_number']):03d}.md`: paragraphs {info['start_paragraph']}-{info['end_paragraph']}, {info['characters']} chars"
+        )
+
+    lines.extend(
+        [
+            "",
+            "## Phases",
+            "",
+        ]
+    )
+
+    for phase in phases:
+        lines.append(
+            f"- `phases/phase-{int(phase['phase_number']):02d}.md`: packets {phase['packet_start']}-{phase['packet_end']}, paragraphs {phase['paragraph_start']}-{phase['paragraph_end']}"
         )
 
     lines.append("")
     (output_dir / "index.md").write_text("\n".join(lines), encoding="utf-8")
 
 
+def write_manifest(
+    output_dir: Path,
+    input_path: Path,
+    title: str,
+    total_paragraphs: int,
+    total_chars: int,
+    packet_info: list[dict[str, int | str]],
+    phases: list[dict[str, int | str]],
+    max_chars: int,
+    packets_per_phase: int,
+) -> None:
+    manifest = {
+        "title": title,
+        "source_name": input_path.name,
+        "source_path": str(input_path),
+        "total_paragraphs": total_paragraphs,
+        "total_characters": total_chars,
+        "packet_count": len(packet_info),
+        "phase_count": len(phases),
+        "max_chars_per_packet": max_chars,
+        "packets_per_phase": packets_per_phase,
+        "packets": packet_info,
+        "phases": phases,
+    }
+    (output_dir / "manifest.json").write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Split a long novel into markdown packets.")
+    parser = argparse.ArgumentParser(
+        description="Split a long novel into a packet and phase analysis workspace."
+    )
     parser.add_argument("input_path", help="Path to a txt/html/md source file")
-    parser.add_argument("output_dir", help="Directory for generated packet files")
+    parser.add_argument("output_dir", help="Directory for generated workspace files")
     parser.add_argument("--title", help="Display title for generated packets")
     parser.add_argument(
         "--max-chars",
@@ -164,11 +389,20 @@ def main() -> None:
         default=12000,
         help="Approximate maximum characters per packet",
     )
+    parser.add_argument(
+        "--packets-per-phase",
+        type=int,
+        default=6,
+        help="How many packets to group into one mid-level phase summary",
+    )
     args = parser.parse_args()
 
     input_path = Path(args.input_path).resolve()
     output_dir = Path(args.output_dir).resolve()
-    output_dir.mkdir(parents=True, exist_ok=True)
+    packets_dir = output_dir / "packets"
+    phases_dir = output_dir / "phases"
+    packets_dir.mkdir(parents=True, exist_ok=True)
+    phases_dir.mkdir(parents=True, exist_ok=True)
 
     raw = read_text(input_path)
     if input_path.suffix.lower() in {".html", ".htm"}:
@@ -179,25 +413,53 @@ def main() -> None:
         raise RuntimeError("No readable paragraphs found in source file.")
 
     title = args.title or input_path.stem
-    packets = packetize(paragraphs, max_chars=max(2000, args.max_chars))
+    max_chars = max(2000, args.max_chars)
+    packets_per_phase = max(1, args.packets_per_phase)
+    expanded_paragraphs = expand_paragraphs(paragraphs, max_chars)
+    packets = packetize(expanded_paragraphs, max_chars=max_chars)
 
-    packet_info = []
+    packet_info: list[dict[str, int | str]] = []
     start_paragraph = 1
     for index, packet in enumerate(packets, start=1):
         info = write_packet(
-            output_dir=output_dir,
+            packets_dir=packets_dir,
             packet_number=index,
             title=title,
             source_name=input_path.name,
             packet=packet,
             start_paragraph=start_paragraph,
-            total_paragraphs=len(paragraphs),
+            total_paragraphs=len(expanded_paragraphs),
         )
         packet_info.append(info)
         start_paragraph += len(packet)
 
-    write_index(output_dir, title, input_path.name, len(paragraphs), packet_info)
-    print(f"Generated {len(packet_info)} packets in {output_dir}")
+    phases = group_packets(packet_info, packets_per_phase=packets_per_phase)
+    write_phase_files(phases_dir, phases, title)
+    write_coverage_ledger(output_dir, packet_info)
+    write_html_outline_template(output_dir, phases)
+    write_index(
+        output_dir=output_dir,
+        title=title,
+        source_name=input_path.name,
+        total_paragraphs=len(expanded_paragraphs),
+        total_chars=len(text),
+        packet_info=packet_info,
+        phases=phases,
+    )
+    write_manifest(
+        output_dir=output_dir,
+        input_path=input_path,
+        title=title,
+        total_paragraphs=len(expanded_paragraphs),
+        total_chars=len(text),
+        packet_info=packet_info,
+        phases=phases,
+        max_chars=max_chars,
+        packets_per_phase=packets_per_phase,
+    )
+    print(
+        f"Generated workspace with {len(packet_info)} packets and {len(phases)} phases in {output_dir}"
+    )
 
 
 if __name__ == "__main__":

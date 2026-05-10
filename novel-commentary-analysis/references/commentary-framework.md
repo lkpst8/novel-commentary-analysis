@@ -111,6 +111,21 @@ Use these rules throughout:
 - If a relation or motive is unclear, keep it open rather than forcing certainty.
 - If chronology is broken in the source, describe the break instead of silently fixing it.
 
+## Anti-Omission Discipline For Huge Novels
+
+When the novel is very long, missing important material becomes as dangerous as hallucinating it.
+
+Before writing the final HTML, check:
+
+- which packets contribute to the main line
+- which packets mainly update subplots
+- where each major character first becomes important
+- where each major character changes direction
+- where the background or world rules materially shift
+- whether the ending reflects the late phases, not just the opening premise
+
+If you cannot answer those questions, you are not ready to finalize.
+
 ## What Makes the Final Page Useful
 
 A good final page lets a reader:
