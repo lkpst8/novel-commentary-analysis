@@ -1,131 +1,149 @@
 ---
 name: novel-commentary-analysis
-description: Analyze long novels and turn them into structured commentary, recap, and interpretation outputs. Use when Codex needs to read or process full-length fiction from `.txt`, `.md`, `.html`, chapter dumps, or pasted excerpts and produce plot梳理, 人物弧光分析, 主题提炼, 关系网整理, 分集/分章节解说大纲, or long-form narration plans for video, article, or oral commentary.
+description: Analyze long novels and generate complete HTML commentary pages that let readers quickly understand what story the novel tells. Use when Codex needs to read or process full-length fiction from `.txt`, `.md`, `.html`, chapter dumps, or pasted excerpts and output a structured novel briefing covering 人物, 背景, 世界观, 主线剧情, 支线剧情, 关键转折, 结局, 主题, and reading value. Use especially when the output must be clear, navigable, visually structured, and strictly faithful to the source text without inventing scenes, motives, settings, or plot developments.
 ---
 
 # Novel Commentary Analysis
 
 ## Overview
 
-Build a reusable workflow for reading long novels and converting them into clear, evidence-based commentary outputs. Keep the work grounded in the source text, separate direct textual support from inference, and prefer structured intermediate notes before writing the final解说稿.
+Read long-form fiction and convert it into a standalone HTML analysis page that helps the user quickly understand what the novel is about. Keep the output source-faithful, highly structured, spoiler-aware when requested, and explicit about what is directly supported by the text versus what is interpretive synthesis.
 
-## Workflow Decision
+## Default Deliverable
 
-Choose the output mode before drafting:
+Default to a full HTML page unless the user explicitly asks for another format.
 
-- Use `剧情梳理` when the user mainly needs chronological recap and causality.
-- Use `人物分析` when the request centers on motives, growth, contradiction, and relationships.
-- Use `主题解读` when the request asks what the novel is “really about” and how it expresses its时代气质, 阶层关系, 情感结构, or价值冲突.
-- Use `解说脚本` when the user wants a narrator-ready long-form output for article, video, podcast, or直播.
-- Use `拆书方案` when the user wants serial content such as “10期讲完一本书”.
+The HTML deliverable should help a reader answer these questions quickly:
 
-If the request is ambiguous, default to this sequence:
-1. Plot skeleton
-2. Character arc map
-3. Theme and emotional core
-4. Final commentary format requested by the user
+- 这部小说发生在什么背景里
+- 这个世界是怎么运转的
+- 主要人物是谁，他们彼此是什么关系
+- 故事的主线到底在讲什么
+- 重要支线在补充什么
+- 剧情是如何一步步推进到结局的
+- 这部小说最核心的主题、情绪和记忆点是什么
+
+When the user only provides a partial excerpt, still use the HTML structure, but clearly mark the page as `基于节选分析` and avoid pretending to summarize the full novel.
+
+## Non-Negotiable Fidelity Rules
+
+Strictly obey these rules:
+
+- Do not invent scenes, motives, settings, timelines, outcomes, or relationships that are not supported by the source.
+- Do not fill gaps with “likely” events unless they are clearly labeled as uncertainty.
+- Do not merge separate characters or reorder events without saying so.
+- Do not exaggerate the importance of a side plot just to make the page look fuller.
+- If the text is incomplete, OCR-damaged, or packetized from messy input, say exactly where certainty drops.
+- If you infer subtext, mark it as `分析判断` rather than `原文明确交代`.
+
+If a requested section cannot be filled from the available material, keep the section and say `原文材料不足，暂不下结论`.
 
 ## Intake
 
-Start by identifying:
+Identify the scope before writing:
 
-- Source format: full text, excerpt, chapter list, HTML page, or prior notes.
-- Coverage target: full book, selected arc, single character, single relationship line, or one theme.
-- Spoiler policy: full spoilers allowed, limited spoilers, or spoiler-free recommendation.
-- Delivery target: summary notes, article outline, video script, episode plan, or polished prose.
-- Evidence standard: whether the user wants close reading with citations or a broader interpretive read.
+- Source type: full book, chapter subset, packetized text, excerpt, or HTML summary.
+- Coverage: whole novel, one arc, one character line, one relationship line, or one theme.
+- Spoiler level: full spoilers, limited spoilers, or spoiler-free.
+- Delivery goal: reading guide,解说稿底稿, video/article page, archive page, or study notes.
+- Certainty level: complete source, partial source, or damaged source.
 
-If the input is longer than the model can comfortably reason over in one pass, run `scripts/novel_packetizer.py` first to generate packetized markdown files and an index. Then analyze packet by packet before synthesizing the whole.
+If the novel is too long for a reliable single-pass read, run `scripts/novel_packetizer.py` first and synthesize from packets.
 
-## Build the Reading Model
+## Reading Model
 
-Extract these anchors early:
+Build the analysis around these core layers:
 
-- Story frame: setting, era, class environment, narrative voice, POV stability.
-- Main conflict: what each major figure wants, what blocks them, and what the cost of failure is.
-- Plot engines: secrets, misrecognitions, reversals, institutions, family structures, war/industry/official systems, romance, revenge, survival.
-- Emotional spine: longing, resentment, shame, loyalty, rivalry, tenderness, ambition, sacrifice.
-- Structural pivots: opening hook, first irreversible turn, mid-story escalation, collapse point, late revelation, ending aftertaste.
+- `背景`
+  Capture era, geography, class environment, institutional setting, family structure, or survival conditions.
 
-Record notes in a compact matrix. For each major character or line, keep:
+- `世界观`
+  Explain the rules of the story world. This can mean political order, military system, cultivation rules, workplace order, social hierarchy, or emotional code.
 
-- `surface role`
-- `hidden drive`
-- `turning point`
-- `relationship pressure`
-- `ending state`
+- `人物`
+  Identify protagonist, major supporting cast, antagonistic pressure, relational mirrors, and emotional anchors.
 
-## Analyze Before Writing
+- `主线剧情`
+  Explain the central conflict from setup to ending in chronological order.
 
-Build the commentary from at least four layers:
+- `支线剧情`
+  Track side arcs that deepen theme, reshape relationships, or redirect the main line.
 
-1. `What happens`
-Chronological plot and causality. Explain not only events but why each event triggers the next.
+- `结构转折`
+  Mark opening hook, first decisive turn, mid-story escalation, collapse/reversal, late revelation, and ending residue.
 
-2. `Who changes`
-Track character motion. Note who grows, who hardens, who breaks, who remains trapped, and what forces that outcome.
+- `主题与气质`
+  Extract what the novel repeatedly expresses through scenes, choices, institutions, and emotional patterns.
 
-3. `What it means`
-Identify recurring images, class positions, institutions, speech habits, or emotional patterns that support the theme.
+## Required HTML Sections
 
-4. `Why it works`
-Explain the narrative pleasure: momentum, reversals, chemistry, atmosphere, realism, cruelty, wish-fulfillment, tragedy, or moral tension.
+Unless the user narrows the task, include all of these sections in the HTML output:
 
-Avoid jumping to the final “theme” too early. Earn interpretation from observed details.
+1. Title block
+2. Story snapshot
+3. Background and world
+4. Character roster
+5. Relationship overview
+6. Main plot timeline
+7. Major subplots
+8. Key turning points
+9. Ending and aftermath
+10. Themes and emotional core
+11. Why the novel is memorable
+12. Certainty and source notes
 
-## Draft the Output
+You may add sections like `叙事视角`, `阵营结构`, `时间线`, `名场面`, or `改编提示` when the source supports them.
 
-Use an output shape that fits the request.
+Read [references/html-output-spec.md](references/html-output-spec.md) for the detailed structure and section-level requirements before drafting.
 
-For `剧情梳理`, prefer:
-- One-paragraph premise
-- Chronological stages
-- Cause-and-effect transitions
-- Ending and aftermath
-- One short interpretation paragraph
+## Section Writing Rules
 
-For `人物分析`, prefer:
-- Character baseline
-- Desire and fear
-- Key relationships
-- Three decisive turns
-- Final arc judgment
+Apply these rules while filling the HTML page:
 
-For `主题解说` or `长篇解说稿`, prefer:
-- Hook
-- Premise and world
-- Major plot stages
-- Character and relationship pressure
-- Theme extraction
-- Why readers remember it
-- Closing takeaway
+- `故事速览` should let a new reader understand the book in under one minute.
+- `背景与世界观` should explain the operating environment, not just decorate the page.
+- `人物` should focus on role, motive, pressure, and arc, not empty adjectives.
+- `主线剧情` must follow chronology and causality.
+- `支线剧情` should explain how each subplot affects the main line, theme, or character development.
+- `结局` should state what actually happens and what emotional/structural consequences remain.
+- `主题` should come from repeated evidence, not a slogan pasted on top of the story.
 
-When the user wants a serial script, break the whole book into episodes by stable dramatic units rather than equal chapter counts. Each episode should end on a hook, reversal, reveal, or emotional cliff.
+## Output Method
 
-## Quality Bar
+When producing the final HTML:
 
-Keep these guardrails:
+1. Extract notes first.
+2. Build a clean chronology.
+3. Separate main line from side line.
+4. Group characters by dramatic function.
+5. Draft the HTML using the required sections.
+6. Run a final fidelity pass and remove anything not grounded in the source.
 
-- Do not fabricate scenes or motives not supported by the source. Mark uncertain inference explicitly.
-- Distinguish `text-supported` conclusions from `interpretive` conclusions.
-- Preserve chronology. If you reorder for effect, say so.
-- Do not flatten morally mixed characters into single labels.
-- For adaptation-oriented commentary, note what is omitted, compressed, or heightened.
-- If the source text is messy OCR or an incomplete scrape, say where the uncertainty comes from.
+Prefer semantic HTML with clear headings, summary cards, and compact section intros. Keep the layout easy to scan on desktop and mobile. Inline CSS is acceptable if the user asks for a standalone file.
 
-## References and Tools
+## Fidelity Check Before Finalizing
 
-Read [references/commentary-framework.md](references/commentary-framework.md) when you need the detailed analysis framework, reusable templates, or episode planning heuristics.
+Before you present the output, verify:
 
-Run the packetizer when the novel is too long for a single-pass reading workflow:
+- Every major plot claim comes from the source or a clearly marked inference.
+- No invented bridge scenes were added between known events.
+- Character motives are not overstated beyond textual support.
+- Main plot and subplots are not confused.
+- The ending section matches the provided material.
+- Uncertainty is visible wherever the source is incomplete.
+
+If any item fails, fix the draft before returning it.
+
+## Tools and References
+
+Use [references/commentary-framework.md](references/commentary-framework.md) for the long-form reading method.
+
+Use [references/html-output-spec.md](references/html-output-spec.md) for the exact HTML page structure and content contract.
+
+If needed, packetize long source text:
 
 ```bash
 python scripts/novel_packetizer.py input.txt output_dir --title "Book Title"
 ```
 
-The script creates:
-
-- `index.md` with packet overview
-- `packet-001.md`, `packet-002.md`, ... for staged reading
-
-Use those packets to produce intermediate notes first, then synthesize the final commentary.
+Then analyze packet by packet, merge notes, and only after that write the final HTML page.
