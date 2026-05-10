@@ -1,0 +1,4 @@
+interface:
+  display_name: "Novel Commentary Analysis"
+  short_description: "Analyze long novels into clear commentary outputs."
+  default_prompt: "Use $novel-commentary-analysis to analyze this long novel and draft a commentary outline."
