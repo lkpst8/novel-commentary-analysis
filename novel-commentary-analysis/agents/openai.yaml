@@ -1,4 +1,4 @@
 interface:
   display_name: "Novel Commentary Analysis"
   short_description: "Analyze long novels into clear commentary outputs."
-  default_prompt: "Use $novel-commentary-analysis to generate a complete HTML novel analysis page that strictly follows the source plot and does not invent any scenes or story developments."
+  default_prompt: "Use $novel-commentary-analysis to build or reuse a token-efficient novel workspace, then generate either a complete HTML analysis page or a compressed plot outline while strictly following the source plot and inventing no scenes, motives, bridge events, or ending details."

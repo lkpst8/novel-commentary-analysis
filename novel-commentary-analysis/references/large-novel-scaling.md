@@ -28,6 +28,9 @@ Use a layered workflow:
 4. `Final HTML layer`
    Convert the ledger into a readable page.
 
+5. `Compression layer`
+   Build reusable medium and short outline artifacts so later output does not need to reread the raw text.
+
 ## Packet Discipline
 
 For each packet, extract:
@@ -40,6 +43,8 @@ For each packet, extract:
 - unresolved threads
 
 Never let a packet pass without writing what it contributed.
+
+Once packet notes exist, treat them as the preferred source for later synthesis.
 
 ## Phase Discipline
 
@@ -119,3 +124,18 @@ Your summary is probably too shallow if:
 - the ending is only described in one vague paragraph
 
 If any of those happen, go back to the phase summaries and coverage ledger before finalizing.
+
+## Token-Saving Rule
+
+For huge novels, every unnecessary reread of raw source is expensive.
+
+Preferred order of reuse:
+
+1. manifest and chapter index
+2. packet notes
+3. phase notes and phase summaries
+4. ledgers
+5. compression passes
+6. final HTML or final short outline
+
+Only fall back to raw packets when a specific uncertainty still matters.

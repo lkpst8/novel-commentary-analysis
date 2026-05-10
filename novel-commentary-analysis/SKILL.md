@@ -1,204 +1,241 @@
 ---
 name: novel-commentary-analysis
-description: Analyze long novels and generate complete HTML commentary pages that let readers quickly understand what story the novel tells. Use when Codex needs to read or process full-length fiction from `.txt`, `.md`, `.html`, chapter dumps, or pasted excerpts and output a structured novel briefing covering 人物, 背景, 世界观, 主线剧情, 支线剧情, 关键转折, 结局, 主题, and reading value. Use especially when the output must be clear, navigable, visually structured, and strictly faithful to the source text without inventing scenes, motives, settings, or plot developments.
+description: Analyze long novels with a token-efficient staged workflow and generate either complete HTML commentary pages or compressed plot outlines. Use when Codex needs to process full-length fiction from `.txt`, `.md`, `.html`, chapter dumps, multi-file novel folders, or pasted excerpts and output a structured analysis covering 人物, 背景, 世界观, 主线剧情, 支线剧情, 关键转折, 结局, 主题, or a short-form complete plot outline. Use especially when the source is very long and the work must stay faithful to the text without inventing scenes, motives, bridge events, settings, or endings.
 ---
 
 # Novel Commentary Analysis
 
 ## Overview
 
-Read long-form fiction and convert it into a standalone HTML analysis page that helps the user quickly understand what the novel is about. Keep the output source-faithful, highly structured, spoiler-aware when requested, and explicit about what is directly supported by the text versus what is interpretive synthesis.
+Use this skill to process novels in a staged, reusable way instead of repeatedly rereading the same source text. The skill supports two major deliverables:
 
-## Default Deliverable
+- `full-html`: a complete HTML analysis page
+- `short-outline`: a compressed short-form plot outline that preserves the whole story arc
 
-Default to a full HTML page unless the user explicitly asks for another format.
+It also supports:
 
-The HTML deliverable should help a reader answer these questions quickly:
+- `medium-outline`: a mid-length bridge between the full analysis and the short outline
 
-- 这部小说发生在什么背景里
-- 这个世界是怎么运转的
-- 主要人物是谁，他们彼此是什么关系
-- 故事的主线到底在讲什么
-- 重要支线在补充什么
-- 剧情是如何一步步推进到结局的
-- 这部小说最核心的主题、情绪和记忆点是什么
+The core design goal is token efficiency. Read the raw source once into a workspace, then make later steps consume packet notes, phase summaries, ledgers, and compression artifacts rather than sending the entire novel back through the model.
 
-When the user only provides a partial excerpt, still use the HTML structure, but clearly mark the page as `基于节选分析` and avoid pretending to summarize the full novel.
+## Modes
+
+Choose one mode before drafting:
+
+- `full-html`
+  Use when the user wants a complete HTML page that clearly explains what the novel is about, who matters, how the world works, what the main line is, what the major subplots are, and how the ending lands.
+
+- `medium-outline`
+  Use when the user wants a readable but compressed full-book outline that preserves the whole causal chain without the size of the full HTML page.
+
+- `short-outline`
+  Use when the user wants the novel compressed into a short-form complete story skeleton. This should still preserve opening situation, trigger, escalation, turning points, ending, and residue.
+
+If the user does not specify a mode, default to `full-html`.
 
 ## Non-Negotiable Fidelity Rules
 
 Strictly obey these rules:
 
-- Do not invent scenes, motives, settings, timelines, outcomes, or relationships that are not supported by the source.
-- Do not fill gaps with “likely” events unless they are clearly labeled as uncertainty.
-- Do not merge separate characters or reorder events without saying so.
-- Do not exaggerate the importance of a side plot just to make the page look fuller.
-- If the text is incomplete, OCR-damaged, or packetized from messy input, say exactly where certainty drops.
-- If you infer subtext, mark it as `分析判断` rather than `原文明确交代`.
+- Do not invent scenes, motives, settings, timelines, outcomes, or relationships not supported by the source.
+- Do not create bridge events just to make compression smoother.
+- Do not turn weak implication into certainty.
+- Do not silently fix broken chronology in the source.
+- Do not inflate a minor side plot into a major narrative line.
+- If the source is incomplete or dirty, say exactly where certainty drops.
 
-If a requested section cannot be filled from the available material, keep the section and say `原文材料不足，暂不下结论`.
+Use these labels when needed:
+
+- `原文明确`
+- `分析判断`
+- `材料不足`
+
+If a section cannot be filled from available material, keep the section and state `原文材料不足，暂不下结论`.
+
+## Anti-Omission Rules
+
+For large novels, omission is as dangerous as hallucination.
+
+Before finalizing any major output, confirm:
+
+- every packet is represented somewhere in the notes or ledgers
+- every phase appears in the final understanding of the story
+- every major character has an explicit role and final state when source permits
+- every major subplot has start, development, and closure status when source permits
+- the ending reflects late-book events, not just the premise or first half
+
+If you cannot verify those points, do not finalize.
+
+## Token Efficiency Rules
+
+Use the workspace to avoid repeated raw-text input:
+
+1. Read the raw source once to build a workspace.
+2. Fill packet notes once.
+3. Build ledgers from notes.
+4. Build compression passes from ledgers and phase summaries.
+5. Build final HTML or outlines from those artifacts.
+
+After the workspace exists:
+
+- Prefer `manifest.json`, `chapters.md`, packet notes, phase notes, ledgers, and compression passes.
+- Reopen raw packets only when a real ambiguity remains unresolved.
+- Do not resummarize the entire novel from scratch if the workspace artifacts already cover it.
+
+This skill should treat the raw novel as the expensive input and the workspace as the reusable memory layer.
 
 ## Intake
 
-Identify the scope before writing:
+Identify:
 
-- Source type: full book, chapter subset, packetized text, excerpt, or HTML summary.
-- Coverage: whole novel, one arc, one character line, one relationship line, or one theme.
-- Spoiler level: full spoilers, limited spoilers, or spoiler-free.
-- Delivery goal: reading guide,解说稿底稿, video/article page, archive page, or study notes.
-- Certainty level: complete source, partial source, or damaged source.
+- source type: raw file, multi-file novel folder, excerpt, or existing workspace
+- desired mode: `full-html`, `medium-outline`, or `short-outline`
+- coverage: whole novel, selected arc, character line, relationship line, or theme
+- spoiler policy: full spoilers, limited spoilers, or spoiler-free
+- source certainty: complete, partial, or damaged
 
-If the novel is too long for a reliable single-pass read, run `scripts/novel_packetizer.py` first and synthesize from the generated workspace rather than from a single raw file.
+If the input is already a workspace with `manifest.json`, continue from the workspace instead of rebuilding it.
 
-## Reading Model
+## Normal-Length Workflow
 
-Build the analysis around these core layers:
+Use this when the source is short enough that omission risk is moderate:
 
-- `背景`
-  Capture era, geography, class environment, institutional setting, family structure, or survival conditions.
+1. Packetize if needed.
+2. Create packet notes.
+3. Build ledgers.
+4. Build compression passes.
+5. Generate the requested output.
+6. Run consistency checks.
 
-- `世界观`
-  Explain the rules of the story world. This can mean political order, military system, cultivation rules, workplace order, social hierarchy, or emotional code.
+## Very-Long-Novel Workflow
 
-- `人物`
-  Identify protagonist, major supporting cast, antagonistic pressure, relational mirrors, and emotional anchors.
+Use this for multi-megabyte or tens-of-megabytes novels:
 
-- `主线剧情`
-  Explain the central conflict from setup to ending in chronological order.
+1. Run `scripts/novel_packetizer.py`.
+2. Run `scripts/novel_chapter_detector.py`.
+3. Fill packet notes under `notes/packets/`.
+4. Fill phase notes under `notes/phases/`.
+5. Run `scripts/novel_ledger_builder.py`.
+6. Run `scripts/novel_outline_compressor.py`.
+7. Run either `scripts/novel_html_builder.py` or use the short-outline canon.
+8. Run `scripts/novel_consistency_checker.py`.
 
-- `支线剧情`
-  Track side arcs that deepen theme, reshape relationships, or redirect the main line.
+For very long novels, do not skip the note and ledger layers. They are the token-saving mechanism.
 
-- `结构转折`
-  Mark opening hook, first decisive turn, mid-story escalation, collapse/reversal, late revelation, and ending residue.
+## `full-html` Rules
 
-- `主题与气质`
-  Extract what the novel repeatedly expresses through scenes, choices, institutions, and emotional patterns.
+The final HTML should help a new reader quickly understand:
 
-## Very Long Novel Mode
+- the background
+- the world or institutional logic
+- the major characters
+- the relationship structure
+- the main plot
+- the important subplots
+- the turning points
+- the ending and aftermath
+- the themes and emotional core
 
-Use this mode for novels that are multiple megabytes long or large enough that a single-pass summary would almost certainly miss characters, subplots, or major turns.
+Unless the user narrows the task, include:
 
-Process the source hierarchically:
+1. title block
+2. story snapshot
+3. background and world
+4. character roster
+5. relationship overview
+6. main plot timeline
+7. phase-by-phase breakdown
+8. major subplots
+9. key turning points
+10. ending and aftermath
+11. themes and emotional core
+12. certainty and source notes
 
-1. Split the source into `packets/`.
-2. Group packets into `phases/`.
-3. Track every packet in `coverage-ledger.md`.
-4. Build rolling notes for characters, worldbuilding, factions, relationships, main-line stages, and subplot states.
-5. Only after phase-level synthesis, draft the final HTML.
+For very long novels, also include:
 
-Never jump directly from a tens-of-megabytes source file to a one-shot summary. That is how main plot beats, secondary arcs, and late-introduced characters get lost.
+- quick navigation
+- appendix-friendly overflow handling
+- optional cast/faction appendix
+- optional detailed chronology appendix
 
-For very long novels, every packet should be represented in at least one of these final destinations:
+Use [references/html-output-spec.md](references/html-output-spec.md).
 
-- main plot timeline
-- subplot section
-- character update
-- world/background note
-- certainty/source note
+## `medium-outline` Rules
 
-## Required HTML Sections
+This mode should preserve the entire main-line causality in a compressed form.
 
-Unless the user narrows the task, include all of these sections in the HTML output:
+Keep:
 
-1. Title block
-2. Story snapshot
-3. Background and world
-4. Character roster
-5. Relationship overview
-6. Main plot timeline
-7. Major subplots
-8. Key turning points
-9. Ending and aftermath
-10. Themes and emotional core
-11. Why the novel is memorable
-12. Certainty and source notes
+- opening state
+- trigger
+- escalation
+- major reversals
+- ending
+- major character landing points
+- ending-relevant subplots
 
-For very long novels, also add:
+Compress:
 
-13. Quick navigation table of contents
-14. Phase-by-phase or act-by-act breakdown
-15. Extended supporting cast or faction appendix when needed
-16. Subplot index showing where each subplot begins, escalates, and resolves
+- repeated bridge scenes
+- repetitive atmosphere beats
+- minor incidents that do not change story direction
 
-You may add sections like `叙事视角`, `阵营结构`, `时间线`, `名场面`, or `改编提示` when the source supports them.
+Always build this from ledgers and the full compression pass first.
 
-Read [references/html-output-spec.md](references/html-output-spec.md) for the detailed structure and section-level requirements before drafting.
+## `short-outline` Rules
 
-## Section Writing Rules
+This mode rebuilds the long novel as a short-form complete plot skeleton.
 
-Apply these rules while filling the HTML page:
+It must still contain:
 
-- `故事速览` should let a new reader understand the book in under one minute.
-- `背景与世界观` should explain the operating environment, not just decorate the page.
-- `人物` should focus on role, motive, pressure, and arc, not empty adjectives.
-- `主线剧情` must follow chronology and causality.
-- `支线剧情` should explain how each subplot affects the main line, theme, or character development.
-- `结局` should state what actually happens and what emotional/structural consequences remain.
-- `主题` should come from repeated evidence, not a slogan pasted on top of the story.
+1. opening situation
+2. triggering event
+3. central escalation
+4. midpoint or major reversal
+5. late major turn
+6. final decision or confrontation
+7. ending and residue
 
-For very long novels, keep two levels of explanation:
+Build it through stages:
 
-- `速览层`: a compressed explanation for readers who want the whole story fast
-- `展开层`: detailed sections that preserve the important progression of plot, people, and subplots
+1. `compression-pass-1-full.md`
+2. `compression-pass-2-medium.md`
+3. `compression-pass-3-short.md`
+4. `short-outline-canon.md`
 
-If the page becomes long, compress phrasing before deleting events. Prefer using anchor navigation, `details/summary`, appendices, and phase sections rather than dropping material.
+If the final short outline exceeds one output window, emit it in parts from the canon instead of continuing from memory.
 
-## Output Method
+Use [references/short-outline-spec.md](references/short-outline-spec.md).
 
-When producing the final HTML:
+## Output Verification
 
-1. Extract notes first.
-2. Build a clean chronology.
-3. Separate main line from side line.
-4. Group characters by dramatic function.
-5. Draft the HTML using the required sections.
-6. Run a final fidelity pass and remove anything not grounded in the source.
+Before returning results, verify:
 
-Prefer semantic HTML with clear headings, summary cards, and compact section intros. Keep the layout easy to scan on desktop and mobile. Inline CSS is acceptable if the user asks for a standalone file.
+- no invented events or motives were added
+- main plot and subplots are not confused
+- the ending matches the known source
+- late-book events are not erased by compression
+- each phase is represented in the final understanding
+- the output was built from workspace artifacts where possible instead of repeated raw-text rereads
 
-For very long novels, the HTML should be multi-layered:
+If these checks fail, fix the draft before returning it.
 
-- top-level quick answer section
-- navigable table of contents
-- concise character and world summary near the top
-- main plot broken into phases or acts
-- subplot cards or grouped sections
-- optional appendices for extended cast, faction notes, or detailed chronology
+## Tools And References
 
-## Fidelity Check Before Finalizing
+Scripts:
 
-Before you present the output, verify:
+- `scripts/novel_packetizer.py`
+- `scripts/novel_chapter_detector.py`
+- `scripts/novel_ledger_builder.py`
+- `scripts/novel_outline_compressor.py`
+- `scripts/novel_html_builder.py`
+- `scripts/novel_consistency_checker.py`
 
-- Every major plot claim comes from the source or a clearly marked inference.
-- No invented bridge scenes were added between known events.
-- Character motives are not overstated beyond textual support.
-- Main plot and subplots are not confused.
-- The ending section matches the provided material.
-- Uncertainty is visible wherever the source is incomplete.
+References:
 
-If any item fails, fix the draft before returning it.
-
-## Tools and References
-
-Use [references/commentary-framework.md](references/commentary-framework.md) for the long-form reading method.
-
-Use [references/html-output-spec.md](references/html-output-spec.md) for the exact HTML page structure and content contract.
-
-Use [references/large-novel-scaling.md](references/large-novel-scaling.md) when the source is large enough that omission risk becomes the main problem.
-
-If needed, packetize long source text:
-
-```bash
-python scripts/novel_packetizer.py input.txt output_dir --title "Book Title" --max-chars 10000 --packets-per-phase 6
-```
-
-The script generates:
-
-- `packets/` for low-level reading
-- `phases/` for mid-level synthesis
-- `coverage-ledger.md` to prevent silent omissions
-- `html-outline-template.md` to structure long HTML output
-- `manifest.json` for machine-readable workspace metadata
-
-Then analyze packet by packet, merge notes phase by phase, and only after that write the final HTML page.
+- [references/commentary-framework.md](references/commentary-framework.md)
+- [references/html-output-spec.md](references/html-output-spec.md)
+- [references/large-novel-scaling.md](references/large-novel-scaling.md)
+- [references/ledger-spec.md](references/ledger-spec.md)
+- [references/short-outline-spec.md](references/short-outline-spec.md)
+- [references/consistency-check-spec.md](references/consistency-check-spec.md)
