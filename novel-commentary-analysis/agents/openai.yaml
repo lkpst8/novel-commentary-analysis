@@ -1,4 +1,4 @@
 interface:
   display_name: "Novel Commentary Analysis"
   short_description: "Analyze long novels into clear commentary outputs."
-  default_prompt: "使用 $novel-commentary-analysis 先建立或复用节省 token 的小说工作区，再按所选模式生成完整 HTML 解读页、中篇梗概或短篇化剧情大纲；必须严格遵守原文，不得虚构情节、动机、桥接事件或结局细节。"
+  default_prompt: "使用 $novel-commentary-analysis 先建立或复用节省 token 的小说工作区，再按所选模式生成完整 HTML 解读页、中篇梗概或短篇化剧情大纲；必须严格遵守本地原文，不得虚构情节、动机、桥接事件或结局细节；若系统里没有 python 命令，就改用 bundled Python，不得改去外部网站搜索剧情梗概代替分析。"

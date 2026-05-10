@@ -110,6 +110,8 @@ Use these rules throughout:
 - If the source is incomplete, say `材料不足`.
 - If a relation or motive is unclear, keep it open rather than forcing certainty.
 - If chronology is broken in the source, describe the break instead of silently fixing it.
+- If local source text exists, do not replace source reading with web summaries or plot recaps from outside sites.
+- If you lack enough local material, say `材料不足` instead of importing missing plot from external summaries.
 
 ## Anti-Omission Discipline For Huge Novels
 

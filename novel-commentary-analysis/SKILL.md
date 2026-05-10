@@ -48,6 +48,9 @@ description: Analyze long novels with a token-efficient staged workflow and gene
 - 不得偷偷修正原文里本就混乱的时间顺序。
 - 不得把次要支线拔高成主线。
 - 如果原文不完整、抓取脏乱、OCR 受损，必须明确指出不确定性出现在哪里。
+- 只要本地已经提供原文、节选、章节文件或现成 workspace，就不得去外部网站搜索小说大纲、剧情介绍、人物表或他人解读来代替分析。
+- 外部搜索得到的梗概、书评、百科、论坛讨论，不得作为补全剧情的依据。
+- 如果本地材料不足，只能明确标注 `材料不足`，不能用外部剧情摘要偷偷补齐。
 
 需要时使用这些标签：
 
@@ -89,6 +92,39 @@ workspace 建好之后：
 - 只有在确实存在关键歧义时，才回头打开 raw packet
 - 如果 workspace 里的中间产物已经覆盖需要的信息，不要重新从整本书开始总结
 
+## 本地优先规则
+
+这个 skill 必须坚持 `本地原文优先`：
+
+1. 优先使用本地原文
+2. 其次使用本地 workspace
+3. 再其次使用本地生成的 notes / ledgers / compression passes
+
+禁止行为：
+
+- 已经有本地原文时，去网上搜“这本书讲了什么”
+- 已经有 workspace 时，跳过 workspace 改去搜外部梗概
+- 用百科、书评、论坛帖子、二手解读替代原文阅读
+
+只有在下面这种情况才允许考虑外部信息，而且必须明确说明：
+
+- 用户明确要求你对比外部版本、改编、出版信息或作者信息
+- 用户根本没有提供文本，而任务本身又明确要求基于公开资料做概览
+
+即使在这种特例下，也不能把外部梗概当成原文事实来输出。
+
+## Python 运行规则
+
+不要假设系统里存在 `python` 命令。
+
+如果需要运行本 skill 自带脚本：
+
+1. 先检查当前环境是否已有可用 Python。
+2. 如果没有，就使用工作区依赖里提供的 bundled Python。
+3. 不要因为 `python` 命令缺失就放弃脚本流程，更不要因此改去外部搜索剧情摘要。
+
+在 Codex 桌面环境里，优先使用 `load_workspace_dependencies` 提供的 Python 路径。
+
 ## 输入判断
 
 先识别：
@@ -126,6 +162,7 @@ workspace 建好之后：
 8. 运行 `scripts/novel_consistency_checker.py`
 
 超长篇不要跳过 note 和 ledger 层，这正是节省 token、避免反复重读原文的关键机制。
+如果系统 `python` 不可用，就改用 bundled Python，不要改走外部搜索路线。
 
 ## `full-html` 规则
 
@@ -235,6 +272,12 @@ workspace 建好之后：
 - `scripts/novel_outline_compressor.py`
 - `scripts/novel_html_builder.py`
 - `scripts/novel_consistency_checker.py`
+
+运行脚本时：
+
+- 优先用当前环境可用的 Python
+- 若不可用，则使用 bundled Python
+- 不要把“无法直接运行 python”当成改用外部剧情网站的理由
 
 参考：
 

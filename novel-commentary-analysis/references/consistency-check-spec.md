@@ -6,6 +6,7 @@ Use consistency checks to catch two major failure modes:
 
 - hallucination
 - omission
+- source substitution with external summaries
 
 ## What To Check
 
@@ -42,6 +43,11 @@ For HTML outputs, confirm the main sections exist:
 - ending
 - short-outline
 - source-notes
+
+### Source-discipline coverage
+
+- if local source or workspace exists, the workflow should not depend on outside plot summaries
+- missing local Python must not be treated as a reason to switch to web-based story summaries
 
 ## Workflow Rule
 
